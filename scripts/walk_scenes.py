@@ -1,3 +1,17 @@
+"""
+walk_scenes.py
+lists every front-camera keyframe in nuScenes mini
+for each scene, follows its keyframes in time order (each keyframe stores
+the ID of the next one) and prints:
+    scene name | timestamp | front camera image path | scene description
+
+at the end, checks that the number of frames printed matches the number
+nuScenes says exist, so a bug can't silently skip frames
+
+"""
+
+
+
 from nuscenes.nuscenes import NuScenes
 
 DATAROOT = "data/nuscenes"
