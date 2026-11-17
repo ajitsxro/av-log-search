@@ -1,3 +1,6 @@
 nuscenes-devkit==1.2.0
 psycopg==3.3.9
 psycopg-binary==3.3.9
+ultralytics==8.4.215
+ultralytics-platform==0.1.111
+ultralytics-thop==2.2.5
