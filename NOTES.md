@@ -44,3 +44,10 @@
   Detection without cpu=4: batch 1 107.2, batch 8 241.3, batch 16 236.4, batch 32 204.3. cpu=4 removed.
 - Headline: ~240 fps at batch 8-16 (batch 16 across 3 runs: 233.7, 239.6, 236.4). T4, yolo11n, FP32, images in memory.
 - Cold reads from the Modal Volume (248 ms/frame) are the real bottleneck for new data. Fix at scale-up: parallel reads or sharded files.
+- Detection job (yolo11n, conf >= 0.1, batch 16, chunks of 64): 404 frames, 4988 detections.
+- Rerun after completion: 0 frames left, 0 inserted.
+- Resume test: TRUNCATE, run --max-chunks 2 (128 frames, 2083 detections, matching chunks 1-2 of the full run), then rerun (276 frames). Final total 4988, same as the uninterrupted run.
+- Resume run sat several minutes before the first chunk with no container output; likely waiting for a T4 (not confirmed).
+- Detections by class (conf >= 0.1): car 3329, traffic light 733, person 626, truck 145, bicycle 62, bus 60, motorcycle 33. Total 4988 (~12 per frame).
+- Checks: 404 processed frames, 0 exact duplicate boxes, 0 frames with no detections.
+- Caveat: exact-duplicate check does not catch near-duplicate boxes below the 0.7 NMS overlap threshold.
