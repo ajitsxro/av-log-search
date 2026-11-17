@@ -31,3 +31,16 @@
   | 32    | 200.6 |
   Best: batch 16. Gains flatten after 8; batch 32 is slower (hypothesis: CPU preprocessing and memory copies).
 - JPEG loading from Modal Volume: 248 ms/frame (100 s for 404) vs 4.3 ms/frame detection. Loading is the bottleneck.
+- Rerun with cpu=4:
+  | batch | fps   |
+  | 1     | 111.1 |
+  | 8     | 242.3 |
+  | 16    | 239.6 |
+  | 32    | 207.3 |
+  JPEG load 8.9 ms/frame (was 248). Batch-32 drop persists, so CPU was not its cause.
+  Load speedup is confounded: cpu=4 vs. volume cache warm on second read. Control run pending.
+- Sequential end-to-end estimate: ~13 ms/frame (~76 fps). Overlapping load and inference is a future optimization.
+- Control run without cpu=4: JPEG load 9.2 ms/frame (vs 8.9 with cpu=4). Load speedup was cache warmth, not CPU.
+  Detection without cpu=4: batch 1 107.2, batch 8 241.3, batch 16 236.4, batch 32 204.3. cpu=4 removed.
+- Headline: ~240 fps at batch 8-16 (batch 16 across 3 runs: 233.7, 239.6, 236.4). T4, yolo11n, FP32, images in memory.
+- Cold reads from the Modal Volume (248 ms/frame) are the real bottleneck for new data. Fix at scale-up: parallel reads or sharded files.
