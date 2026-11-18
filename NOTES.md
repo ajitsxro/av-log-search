@@ -83,3 +83,8 @@
 - Estimates read +0.4 to +0.8 m long (median of visible surface vs. single nearest point).
 - Caveat: fraction chosen on the same data the error is reported on. Re-measure on new scenes at scale-up.
 - Center-truth numbers reported too (overall 1.52 m at full box).
+- Backfill: 4988 detections, 2403 with distance, 2585 unknown. Rerun processed 0.
+- At conf >= 0.3, with distance: person 288/297, truck 96/98, bus 46/46, bicycle 15/15, motorcycle 9/10, car 893/1522, traffic light 81/376.
+  Above 0.3: 40% unknown. Below 0.3: 63% unknown.
+- Traffic lights: low coverage (LiDAR max +10° elevation). Distances unverified (no traffic light labels in nuScenes).
+- First hand-written search, person < 10 m at night, conf >= 0.3: 3 frames (336, 353, 355), all scene-1094, 8.9 to 9.7 m. Likely one person across frames.
