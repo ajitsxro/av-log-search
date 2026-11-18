@@ -51,3 +51,5 @@
 - Detections by class (conf >= 0.1): car 3329, traffic light 733, person 626, truck 145, bicycle 62, bus 60, motorcycle 33. Total 4988 (~12 per frame).
 - Checks: 404 processed frames, 0 exact duplicate boxes, 0 frames with no detections.
 - Caveat: exact-duplicate check does not catch near-duplicate boxes below the 0.7 NMS overlap threshold.
+
+
