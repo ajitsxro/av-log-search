@@ -15,9 +15,9 @@ from PIL import Image
 
 from geometry.nuscenes_lidar import lidar_points_in_camera
 from geometry.project import project_to_image
+from config import DATAROOT, NUSCENES_VERSION
 
-DATAROOT = "data/nuscenes"
-VERSION = "v1.0-mini"
+
 OUTPUT_PATH = "output/lidar_on_image.png"
 
 
@@ -35,7 +35,7 @@ def main():
     image = Image.open(os.path.join(DATAROOT, camera_data["filename"]))
     image_width, image_height = image.size
 
-    u, v, depths = project_to_image(points_camera, intrinsic, image_width, image_height)
+    u, v, depths, ranges = project_to_image(points_camera, intrinsic, image_width, image_height)
 
     print("intrinsic matrix K:")
     print(intrinsic.round(1))

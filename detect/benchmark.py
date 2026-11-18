@@ -20,22 +20,16 @@ import time
 
 import modal
 
-DATABASE_URL = "postgresql://av:av@localhost:5432/avsearch"
-VOLUME_NAME = "nuscenes-mini"
-MODEL_NAME = "yolo11n.pt"
+from config import DATABASE_URL, DRIVING_CLASSES, MODEL_NAME
+from modal_setup import image, volume
+
 CONFIDENCE_THRESHOLD = 0.1
-CLASS_IDS = [0, 1, 2, 3, 5, 7, 9]
 BATCH_SIZES = [1, 8, 16, 32]
 REPEATS = 3
 FRAMES_PER_DRIVING_HOUR = 7200
 T4_PRICE_PER_HOUR = 0.59
 
-image = (
-    modal.Image.debian_slim(python_version="3.12")
-    .apt_install("libgl1", "libglib2.0-0")
-    .pip_install("ultralytics")
-)
-volume = modal.Volume.from_name(VOLUME_NAME)
+
 app = modal.App("av-log-search-benchmark", image=image)
 
 
@@ -43,7 +37,7 @@ def run_detector(model, batch):
     model(
         batch,
         conf=CONFIDENCE_THRESHOLD,
-        classes=CLASS_IDS,
+        classes=list(DRIVING_CLASSES.keys()),
         device=0,
         agnostic_nms=True,
         verbose=False,

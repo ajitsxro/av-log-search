@@ -3,7 +3,7 @@ test_geometry.py
 
 unit tests for the projection and distance math, checked against values
 computed by hand. No dataset or database needed.
-
+ 
 """
 
 import numpy as np

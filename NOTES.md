@@ -88,3 +88,6 @@
   Above 0.3: 40% unknown. Below 0.3: 63% unknown.
 - Traffic lights: low coverage (LiDAR max +10° elevation). Distances unverified (no traffic light labels in nuScenes).
 - First hand-written search, person < 10 m at night, conf >= 0.3: 3 frames (336, 353, 355), all scene-1094, 8.9 to 9.7 m. Likely one person across frames.
+- Unit tests: 9 passed. Changing + cx to - cx in project.py made the projection tests fail, so the tests catch real bugs.
+
+## Part 4

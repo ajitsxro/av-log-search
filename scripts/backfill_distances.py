@@ -20,13 +20,7 @@ from nuscenes.nuscenes import NuScenes
 from geometry.distance import box_distance
 from geometry.nuscenes_lidar import lidar_points_in_camera
 from geometry.project import project_to_image
-
-DATAROOT = "data/nuscenes"
-VERSION = "v1.0-mini"
-DATABASE_URL = "postgresql://av:av@localhost:5432/avsearch"
-SCHEMA_PATH = "db/schema.sql"
-IMAGE_WIDTH = 1600
-IMAGE_HEIGHT = 900
+from config import DATABASE_URL, DATAROOT, IMAGE_HEIGHT, IMAGE_WIDTH, NUSCENES_VERSION, SCHEMA_PATH
 
 SELECT_TODO_SQL = """
     SELECT d.detection_id, d.frame_id, f.sample_token, f.camera_token, d.x1, d.y1, d.x2, d.y2
@@ -41,7 +35,7 @@ UPDATE_SQL = """
 
 
 def main():
-    nusc = NuScenes(version=VERSION, dataroot=DATAROOT, verbose=False)
+    nusc = NuScenes(version=NUSCENES_VERSION, dataroot=DATAROOT, verbose=False)
 
     with open(SCHEMA_PATH) as schema_file:
         schema_sql = schema_file.read()

@@ -26,22 +26,20 @@ import os
 import numpy as np
 import psycopg
 from nuscenes.nuscenes import NuScenes
-from nuscenes.utils.geometry_utils import BoxVisibility, view_points
 
+from config import DATABASE_URL, DATAROOT, IMAGE_HEIGHT, IMAGE_WIDTH, NUSCENES_VERSION
+from evaluation.labels import labeled_boxes_in_image, match_detections
 from geometry.distance import box_distance
 from geometry.nuscenes_lidar import lidar_points_in_camera
 from geometry.project import project_to_image
 
-DATAROOT = "data/nuscenes"
-VERSION = "v1.0-mini"
-DATABASE_URL = "postgresql://av:av@localhost:5432/avsearch"
 CONFIDENCE_THRESHOLD = 0.3
-IOU_THRESHOLD = 0.5
-IMAGE_WIDTH = 1600
-IMAGE_HEIGHT = 900
-OUTPUT_PATH = "output/distance_validation.csv"
-KEEP_FRACTION = 0.5
+KEEP_FRACTION = 0.75
 TRUTH = "surface"
+OUTPUT_PATH = "output/distance_validation.csv"
+
+DISTANCE_BUCKETS = [(0, 10), (10, 30), (30, 1000)]
+POINT_BUCKETS = [(1, 2), (3, 4), (5, 9), (10, 1000000)]
 
 CATEGORY_TO_CLASS = {
     "vehicle.car": "car",
@@ -58,92 +56,6 @@ CATEGORY_TO_CLASS = {
 
 DISTANCE_BUCKETS = [(0, 10), (10, 30), (30, 1000)]
 POINT_BUCKETS = [(1, 2), (3, 4), (5, 9), (10, 1000000)]
-
-def distance_to_nearest_surface(box):
-    rotation = box.orientation.rotation_matrix
-    camera_in_box_frame = rotation.T @ (np.zeros(3) - box.center)
-
-    half_length = box.wlh[1] / 2
-    half_width = box.wlh[0] / 2
-    half_height = box.wlh[2] / 2
-
-    nearest_x = min(max(camera_in_box_frame[0], -half_length), half_length)
-    nearest_y = min(max(camera_in_box_frame[1], -half_width), half_width)
-    nearest_z = min(max(camera_in_box_frame[2], -half_height), half_height)
-    nearest_point = np.array([nearest_x, nearest_y, nearest_z])
-
-    return float(np.linalg.norm(camera_in_box_frame - nearest_point))
-
-def labeled_boxes_in_image(nusc, camera_token):
-    _, boxes, intrinsic = nusc.get_sample_data(camera_token, box_vis_level=BoxVisibility.ANY)
-
-    labeled = []
-    for box in boxes:
-        if box.name not in CATEGORY_TO_CLASS:
-            continue
-
-        corners = box.corners()
-        if corners[2, :].min() <= 0.1:
-            continue
-
-        corners_2d = view_points(corners, intrinsic, normalize=True)
-        x1 = max(0.0, float(corners_2d[0, :].min()))
-        y1 = max(0.0, float(corners_2d[1, :].min()))
-        x2 = min(float(IMAGE_WIDTH), float(corners_2d[0, :].max()))
-        y2 = min(float(IMAGE_HEIGHT), float(corners_2d[1, :].max()))
-
-        labeled.append({
-            "class_name": CATEGORY_TO_CLASS[box.name],
-            "box": (x1, y1, x2, y2),
-            "center_distance": float(np.linalg.norm(box.center)),
-            "surface_distance": distance_to_nearest_surface(box),
-        })
-    return labeled
-
-
-def iou(box_a, box_b):
-    overlap_x1 = max(box_a[0], box_b[0])
-    overlap_y1 = max(box_a[1], box_b[1])
-    overlap_x2 = min(box_a[2], box_b[2])
-    overlap_y2 = min(box_a[3], box_b[3])
-
-    overlap_width = max(0.0, overlap_x2 - overlap_x1)
-    overlap_height = max(0.0, overlap_y2 - overlap_y1)
-    overlap_area = overlap_width * overlap_height
-
-    area_a = (box_a[2] - box_a[0]) * (box_a[3] - box_a[1])
-    area_b = (box_b[2] - box_b[0]) * (box_b[3] - box_b[1])
-    union_area = area_a + area_b - overlap_area
-
-    if union_area <= 0:
-        return 0.0
-    return overlap_area / union_area
-
-
-def match_detections(detections, labeled):
-    matches = []
-    used_labels = set()
-
-    for detection in detections:
-        class_name, confidence, x1, y1, x2, y2 = detection
-
-        best_index = None
-        best_iou = 0.0
-        for index in range(len(labeled)):
-            if index in used_labels:
-                continue
-            if labeled[index]["class_name"] != class_name:
-                continue
-            overlap = iou((x1, y1, x2, y2), labeled[index]["box"])
-            if overlap > best_iou:
-                best_iou = overlap
-                best_index = index
-
-        if best_index is not None and best_iou >= IOU_THRESHOLD:
-            used_labels.add(best_index)
-            matches.append((detection, labeled[best_index], best_iou))
-
-    return matches
 
 
 def median_or_none(values):
@@ -172,7 +84,7 @@ def print_bucket_table(title, rows, key, buckets):
 
 
 def main():
-    nusc = NuScenes(version=VERSION, dataroot=DATAROOT, verbose=False)
+    nusc = NuScenes(version=NUSCENES_VERSION, dataroot=DATAROOT, verbose=False)
 
     with psycopg.connect(DATABASE_URL) as conn:
         frames = conn.execute(

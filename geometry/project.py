@@ -35,6 +35,10 @@ def project_to_image(points_camera, intrinsic, image_width, image_height, min_de
     u = fx * points_in_front[0, :] / depths_in_front + cx
     v = fy * points_in_front[1, :] / depths_in_front + cy
 
+    ranges = np.sqrt(
+        points_in_front[0, :] ** 2 + points_in_front[1, :] ** 2 + points_in_front[2, :] ** 2
+    )
+
     inside_image = (u >= 0) & (u < image_width) & (v >= 0) & (v < image_height)
 
-    return u[inside_image], v[inside_image], depths_in_front[inside_image]
+    return u[inside_image], v[inside_image], depths_in_front[inside_image], ranges[inside_image]

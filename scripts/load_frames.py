@@ -12,12 +12,8 @@ safe to rerun: camera_token is UNIQUE and rows that already exist are skipped.
 
 import psycopg
 from nuscenes.nuscenes import NuScenes
+from config import CAMERA, DATABASE_URL, DATAROOT, NUSCENES_VERSION, SCHEMA_PATH
 
-DATAROOT = "data/nuscenes"
-VERSION = "v1.0-mini"
-CAMERA = "CAM_FRONT"
-DATABASE_URL = "postgresql://av:av@localhost:5432/avsearch"
-SCHEMA_PATH = "db/schema.sql"
 
 INSERT_SQL = """
     INSERT INTO frames
@@ -68,7 +64,7 @@ def collect_frames(nusc):
 
 
 def main():
-    nusc = NuScenes(version=VERSION, dataroot=DATAROOT, verbose=False)
+    nusc = NuScenes(version=NUSCENES_VERSION, dataroot=DATAROOT, verbose=False)
     frames = collect_frames(nusc)
     print("collected", len(frames), "frames from nuScenes")
 
