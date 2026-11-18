@@ -90,4 +90,19 @@
 - First hand-written search, person < 10 m at night, conf >= 0.3: 3 frames (336, 353, 355), all scene-1094, 8.9 to 9.7 m. Likely one person across frames.
 - Unit tests: 9 passed. Changing + cx to - cx in project.py made the projection tests fail, so the tests catch real bugs.
 
-## Part 4
+
+
+
+- Post-cleanup distance validation identical (0.74 m overall, all buckets match).
+
+
+
+## Scale-up
+- Downloaded trainval metadata (0.43 GB) and keyframes part 1 (4.2 GB); extracted only CAM_FRONT and LIDAR_TOP.
+- load_frames on v1.0-trainval: 3741 frames, 94 scenes (one mini scene was also in part 1). 3337 new rows, 0 duplicate images, so mini and trainval share tokens.
+- Part 1 added 0 night and 0 rain frames: day/clear 3620, night/clear 81, night/rain 40.
+- All 10 trainval keyframe parts downloaded; extracted CAM_FRONT and LIDAR_TOP only.
+- load_frames: 34149 frames, 0 scenes skipped, 30408 new rows inserted (3741 + 30408 = 34149).
+- trainval metadata: 850 scenes, 99 with "night", 165 with "rain" in the description.
+
+
