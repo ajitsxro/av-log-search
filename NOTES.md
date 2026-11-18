@@ -1,6 +1,6 @@
 # NOTES
 
-## Session 1
+## Part 1
 - Set up repo, Python 3.12 venv, nuScenes devkit, Postgres 16 in Docker.
 - Bugs hit:
   - Downloaded the panoptic add-on instead of v1.0-mini (no images or metadata).
@@ -9,7 +9,7 @@
 - frames table: 404 rows (all front-camera keyframes in mini). Reruns inserted 0 (idempotent).
 - time_of_day / weather split: day+clear 283, night+clear 81, night+rain 40.
 
-## Session 2
+## Part 2
 - detect_one on frame 1 (CPU, yolo11n, conf 0.3): 1 truck, 4 cars, conf 0.37 to 0.76.
 - Missed vs labels:
   - Unsupported class: barriers (no COCO class).
@@ -53,3 +53,33 @@
 - Caveat: exact-duplicate check does not catch near-duplicate boxes below the 0.7 NMS overlap threshold.
 
 
+## Part 3
+- LiDAR projection on scene 0, frame 1: 3,067 of 34,688 points (8.8%) land in CAM_FRONT. Depth 4.5 to 98.1 m. Overlay lines up with truck, road, barriers.
+- CAM_FRONT K: fx = fy = 1266.4, cx = 816.3, cy = 491.5 (principal point ~16 px right, ~42 px below image center).
+- Camera fired 35.5 ms before LiDAR timestamp; 4-hop chain through world frame corrects for car motion.
+- Far objects get few points; box edges catch background points (reason for median and a min-points rule).
+- Box distances, frame 1 (conf >= 0.3): truck 655 pts 13.0 m; cars 16 pts 35.5 m, 5 pts 38.1 m, 4 pts unknown, 3 pts unknown.
+- Expected points on a car at 35 m from LiDAR spacing (0.20 m horizontal, 0.79 m vertical): ~18. Measured 16.
+- Dark car got 3 points in a box similar in size to the 16-point car. Hypothesis: low reflectivity. Not confirmed.
+- MIN_POINTS = 5 decides 3 of 4 cars here; set it from validation error, not by guess.
+- Distance validation (conf >= 0.3, IoU >= 0.5, same class, all 404 frames):
+  2364 detections, 1246 matched, 100 matched with 0 points, 1146 evaluated.
+  Median |error| 1.52 m, signed -0.79 m (reads short: surface vs center).
+  By true distance: 0-10 m 1.14 (+0.61), 10-30 m 1.05 (-0.67), 30+ m 2.29 (-1.65).
+  By points: 1-2 3.44, 3-4 2.21, 5-9 2.06, 10+ 1.17.
+- MIN_POINTS 5 -> 3: 3-4 points error (2.21 m) ~ 5-9 (2.06 m); 1-2 points clearly worse (3.44 m).
+- Hypothesis: box edges catch background (close range, reads long) and road in front (far range, reads short).
+- Keep-fraction experiment (center truth), median |error| by range 0-10 / 10-30 / 30+:
+  1.0: 1.14 / 1.05 / 2.29, unknown (0-2 pts) 15%
+  0.75: 0.90 / 1.29 / 2.12, unknown 24%
+  0.5: 0.18 / 1.44 / 2.12, unknown 38%
+- Finding: at 1.0, background (reads long) and surface-vs-center (reads short) partly cancelled. Cropping removes background; remaining error is a consistent short bias.
+- Fix: validate against label's nearest-surface distance (what LiDAR measures, and what "within X m" means). Keep center-based numbers reported too.
+- Surface-truth validation (label nearest-surface distance), median |error| by range 0-10 / 10-30 / 30+:
+  1.0: 1.53 / 1.20 / 1.29, overall 1.27, unknown 15%
+  0.75: 0.78 / 0.69 / 0.86, overall 0.74, unknown 24%
+  0.5: 0.47 / 0.55 / 0.84, overall 0.57, unknown 38%
+- Decision: KEEP_FRACTION 0.75, MIN_POINTS 3. Meets <1 m in all ranges; 0.5 is more accurate but leaves 38% of objects without distance.
+- Estimates read +0.4 to +0.8 m long (median of visible surface vs. single nearest point).
+- Caveat: fraction chosen on the same data the error is reported on. Re-measure on new scenes at scale-up.
+- Center-truth numbers reported too (overall 1.52 m at full box).
