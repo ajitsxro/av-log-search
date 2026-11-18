@@ -22,6 +22,7 @@ by true distance and by number of LiDAR points in the box.
 
 import csv
 import os
+import time
 
 import numpy as np
 import psycopg
@@ -37,6 +38,8 @@ CONFIDENCE_THRESHOLD = 0.3
 KEEP_FRACTION = 0.75
 TRUTH = "surface"
 OUTPUT_PATH = "output/distance_validation.csv"
+
+HELD_OUT_ONLY = True
 
 DISTANCE_BUCKETS = [(0, 10), (10, 30), (30, 1000)]
 POINT_BUCKETS = [(1, 2), (3, 4), (5, 9), (10, 1000000)]
@@ -85,10 +88,15 @@ def print_bucket_table(title, rows, key, buckets):
 
 def main():
     nusc = NuScenes(version=NUSCENES_VERSION, dataroot=DATAROOT, verbose=False)
+    tuning_scenes = set()
+    if HELD_OUT_ONLY:
+        mini = NuScenes(version="v1.0-mini", dataroot=DATAROOT, verbose=False)
+        for scene in mini.scene:
+            tuning_scenes.add(scene["name"])
 
     with psycopg.connect(DATABASE_URL) as conn:
         frames = conn.execute(
-            "SELECT frame_id, sample_token, camera_token FROM frames ORDER BY frame_id"
+            "SELECT frame_id, sample_token, camera_token, scene_name FROM frames ORDER BY frame_id"
         ).fetchall()
         detection_rows = conn.execute(
             "SELECT frame_id, class_name, confidence, x1, y1, x2, y2 FROM detections "
@@ -108,11 +116,21 @@ def main():
     total_matched = 0
     matched_with_no_points = 0
 
-    for frame_id, sample_token, camera_token in frames:
+    frames_checked = 0
+    start_time = time.perf_counter()
+    for frame_id, sample_token, camera_token, scene_name in frames:
+        if HELD_OUT_ONLY and scene_name in tuning_scenes:
+            continue
+
+        frames_checked += 1
+        if frames_checked % 2000 == 0:
+            print("frames checked:", frames_checked, "|", round(time.perf_counter() - start_time), "s")
+
         detections = detections_by_frame.get(frame_id, [])
         total_detections += len(detections)
         if len(detections) == 0:
             continue
+            
 
         sample = nusc.get("sample", sample_token)
         lidar_token = sample["data"]["LIDAR_TOP"]
@@ -161,6 +179,8 @@ def main():
 
     print("keep fraction:", KEEP_FRACTION)
     print("truth:", TRUTH)
+    print("held out only:", HELD_OUT_ONLY, "| frames checked:", frames_checked)
+    # “HELD_OUT_ONLY skips the 10 mini scenes used to choose KEEP_FRACTION and MIN_POINTS.”
     print("detections (conf >= 0.3):", total_detections)
     print("matched to a labeled box:", total_matched)
     print("matched but 0 LiDAR points:", matched_with_no_points)

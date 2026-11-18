@@ -115,5 +115,11 @@
 - vs. pre-shard: ~5 frames/sec end to end. Actual run cost: <check Modal usage page>.
 - Distance backfill at scale: 294,182 detections over 31,756 frames in 84 s (2.6 ms/frame, local). Known 133,494 (45%), unknown 160,688 (55%).
 - 32,160 of 34,149 frames have at least one detection.
+- Held-out distance validation (840 non-mini scenes, conf >= 0.3, keep 0.75, surface truth):
+  137,938 detections, 74,965 matched, 10,029 with 0 points, 64,936 evaluated.
+  Median |error| 0.76 m (mini: 0.74), signed +0.61 m.
+  By range: 0-10 m 0.86, 10-30 m 0.68, 30+ m 1.01.
+  By points: 1-2 1.78, 3-4 0.58, 5-9 0.56, 10+ 0.82.
+- Settings generalize. 30+ m slightly above the 1 m target.
 
 
