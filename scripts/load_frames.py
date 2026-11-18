@@ -11,6 +11,7 @@ safe to rerun: camera_token is UNIQUE and rows that already exist are skipped.
 """
 
 import psycopg
+import os
 from nuscenes.nuscenes import NuScenes
 from config import CAMERA, DATABASE_URL, DATAROOT, NUSCENES_VERSION, SCHEMA_PATH
 
@@ -39,7 +40,15 @@ def tags_from_description(description):
 
 def collect_frames(nusc):
     frames = []
+    skipped_scenes = 0
+
     for scene in nusc.scene:
+        first_sample = nusc.get("sample", scene["first_sample_token"])
+        first_camera = nusc.get("sample_data", first_sample["data"][CAMERA])
+        if not os.path.exists(os.path.join(DATAROOT, first_camera["filename"])):
+            skipped_scenes += 1
+            continue
+
         time_of_day, weather = tags_from_description(scene["description"])
 
         sample_token = scene["first_sample_token"]
@@ -60,14 +69,14 @@ def collect_frames(nusc):
             frames.append(frame)
 
             sample_token = sample["next"]
-    return frames
+
+    return frames, skipped_scenes
 
 
 def main():
     nusc = NuScenes(version=NUSCENES_VERSION, dataroot=DATAROOT, verbose=False)
-    frames = collect_frames(nusc)
-    print("collected", len(frames), "frames from nuScenes")
-
+    frames, skipped_scenes = collect_frames(nusc)
+    print("collected", len(frames), "frames;", skipped_scenes, "scenes skipped (files not downloaded)")
     with open(SCHEMA_PATH) as schema_file:
         schema_sql = schema_file.read()
 

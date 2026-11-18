@@ -9,7 +9,7 @@ import os
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://av:av@localhost:5432/avsearch")
 DATAROOT = "data/nuscenes"
-NUSCENES_VERSION = "v1.0-mini"
+NUSCENES_VERSION = "v1.0-trainval"
 CAMERA = "CAM_FRONT"
 SCHEMA_PATH = "db/schema.sql"
 IMAGE_WIDTH = 1600
@@ -25,3 +25,6 @@ DRIVING_CLASSES = {
     7: "truck",
     9: "traffic light",
 }
+
+def shard_filename(shard_id):
+    return f"shard_{shard_id:05d}.tar"

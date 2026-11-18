@@ -104,5 +104,16 @@
 - All 10 trainval keyframe parts downloaded; extracted CAM_FRONT and LIDAR_TOP only.
 - load_frames: 34149 frames, 0 scenes skipped, 30408 new rows inserted (3741 + 30408 = 34149).
 - trainval metadata: 850 scenes, 99 with "night", 165 with "rain" in the description.
+- Shards: 67 tar files (512 images each, last 357), 4.8 GB total (~73 MB/shard, ~140 KB/image). frames.shard_id records membership.
+- frame_ids have gaps: INSERT ... ON CONFLICT DO NOTHING still consumes SERIAL values on skipped rows, so shards are assigned by position and stored, not computed from frame_id.
+- Pre-shard test (2 chunks, 32 read threads, small files): 197 ms/frame read, 5.0 frames/sec end to end.
+- Shard test (2 shards, 620 frames): read 3.9 ms/frame (was 197 with small files + 32 threads, ~50x faster), decode 7.5 ms/frame, detection 204.9 fps/GPU (warmup excluded). Wall 29.9 s, mostly container startup.
+- Next bottleneck: single-threaded JPEG decode (7.5 ms) > detection (~4.9 ms/frame). Not fixed yet.
+- Full detection run (sharded, Modal .map): ~32,100 frames in 71.2 s = 451 frames/sec end to end across parallel T4s.
+  Per frame: read 3.3 ms, decode 6.1 ms, detect 4.9 ms (204 fps/GPU). ~70 fps/GPU end to end.
+- Totals: 34,149 processed frames, 299,170 detections (~8.8 per frame).
+- vs. pre-shard: ~5 frames/sec end to end. Actual run cost: <check Modal usage page>.
+- Distance backfill at scale: 294,182 detections over 31,756 frames in 84 s (2.6 ms/frame, local). Known 133,494 (45%), unknown 160,688 (55%).
+- 32,160 of 34,149 frames have at least one detection.
 
 

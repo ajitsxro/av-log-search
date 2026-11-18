@@ -15,6 +15,7 @@ covers all stored detections (conf >= 0.1); search filters by confidence.
 """
 
 import psycopg
+import time
 from nuscenes.nuscenes import NuScenes
 
 from geometry.distance import box_distance
@@ -56,6 +57,8 @@ def main():
 
         known = 0
         unknown = 0
+        start_time = time.perf_counter()
+        frames_done = 0
         for frame_id in boxes_by_frame:
             sample_token, camera_token = tokens_by_frame[frame_id]
             sample = nusc.get("sample", sample_token)
@@ -72,6 +75,19 @@ def main():
                         unknown += 1
                     else:
                         known += 1
+
+            frames_done += 1
+            if frames_done % 1000 == 0:
+                elapsed = time.perf_counter() - start_time
+                print("frames:", frames_done, "of", len(boxes_by_frame), "|", round(elapsed), "s elapsed")
+
+        total_seconds = time.perf_counter() - start_time
+
+    print("frames processed:", len(boxes_by_frame))
+    print("distance known:", known)
+    print("distance unknown (< 3 points):", unknown)
+    if frames_done > 0:
+        print("time:", round(total_seconds), "s =", round(total_seconds / frames_done * 1000, 1), "ms/frame")
 
     print("frames processed:", len(boxes_by_frame))
     print("distance known:", known)

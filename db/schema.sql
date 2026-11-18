@@ -6,7 +6,8 @@ CREATE TABLE IF NOT EXISTS frames (
     timestamp_us  BIGINT NOT NULL,
     image_path    TEXT   NOT NULL,
     time_of_day   TEXT   NOT NULL CHECK (time_of_day IN ('day', 'night')),
-    weather       TEXT   NOT NULL CHECK (weather IN ('clear', 'rain'))
+    weather       TEXT   NOT NULL CHECK (weather IN ('clear', 'rain')),
+    shard_id      INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS detections (
@@ -33,3 +34,4 @@ CREATE TABLE IF NOT EXISTS processed_frames (
 
 ALTER TABLE detections ADD COLUMN IF NOT EXISTS distance_m REAL;
 ALTER TABLE detections ADD COLUMN IF NOT EXISTS lidar_points INTEGER;
+ALTER TABLE frames ADD COLUMN IF NOT EXISTS shard_id INTEGER;

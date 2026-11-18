@@ -28,6 +28,7 @@ BATCH_SIZES = [1, 8, 16, 32]
 REPEATS = 3
 FRAMES_PER_DRIVING_HOUR = 7200
 T4_PRICE_PER_HOUR = 0.59
+BENCHMARK_FRAMES = 404
 
 
 app = modal.App("av-log-search-benchmark", image=image)
@@ -103,8 +104,9 @@ def main():
     import psycopg
 
     with psycopg.connect(DATABASE_URL) as conn:
-        rows = conn.execute("SELECT image_path FROM frames ORDER BY frame_id").fetchall()
-
+        rows = conn.execute(
+            "SELECT image_path FROM frames ORDER BY frame_id LIMIT %s", (BENCHMARK_FRAMES,)
+        ).fetchall()
     image_paths = []
     for row in rows:
         image_paths.append(row[0])
