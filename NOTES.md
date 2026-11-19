@@ -129,5 +129,8 @@
   After (detections (class_name, distance_m)): Index Scan, no sort, ~419 index entries read, 0.96 ms. 8.7x faster.
 - Index cost: table 30 MB, class/distance index 8.6 MB, frame_id index 2.7 MB.
 - Remaining work: night check on 320 joined frames; not worth denormalizing at ~1 ms.
+- SearchFilter (Pydantic, extra=forbid) + filter_to_sql (parameterized): 11 unit tests, 20 total passing.
+- Headline query on full data (person <= 10 m, night, conf >= 0.3): 10 frames, conf 0.79-0.87, nearest 5.5-9.4 m (mini had 3 results at conf 0.30-0.50).
+- Issue: top 10 spans only 6 scenes (consecutive frames of the same moment). Consider max_per_scene; decide with the precision eval.
 
 
