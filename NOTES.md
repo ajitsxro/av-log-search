@@ -165,4 +165,10 @@
 - inspect 13 (truck < 8 m day): 3/5 wrong = occluded trucks (visibility 1, ~11-12 m) read ~7.5 m because points hit the object in front (reads SHORT, opposite of pedestrians). 2/5 = no truck label nearby (class mismatch: van/construction vehicle likely).
 - inspect 17 (>= 2 cyclists): 4/5 wrong = one labeled bicycle with 2-3 overlapping boxes (e.g. frame 16947: two boxes both 6.9 m, one label at 6.3 m), duplicates below the 0.7 NMS overlap. 1/5 = 4 detections, no bicycle labels.
 - Possible fixes (not done): stricter NMS for counts, box-size vs distance consistency check for occlusion, wider class mapping.
+- Latency (through API, 20 eval queries):
+  A. structured POST /search, 50 runs/query (n=1000): db p50 4.5 / p95 11.4 / max 42.5 ms; client p50 5.9 / p95 22.7 ms.
+     Slowest: "at least 5 cars" db p95 41.4 ms (GROUP BY over many car rows). Others <= 8.2 ms.
+  B. text GET /search/text, 10 runs/query (n=200): LLM parse p50 736 / p95 1214 / max 2248 ms; db p50 17.5 / p95 29.6 ms; total p50 762 / p95 1242 ms. LLM = 97% of median. 0 fallbacks, 0 retries.
+  DB slower in B than A (back-to-back vs spaced between LLM calls); cause unverified.
+- Ways to cut: cache parsed filters, keyword-first fast path, per-frame count table for count queries.
 

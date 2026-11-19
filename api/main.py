@@ -92,7 +92,6 @@ class TextSearchResponse(BaseModel):
     db_ms: float
     results: list[SearchResult]
 
-@app.post("/search", response_model=SearchResponse)
 def run_search(search_filter):
     sql, params = filter_to_sql(search_filter)
 
