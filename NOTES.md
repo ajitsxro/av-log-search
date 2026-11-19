@@ -162,4 +162,7 @@
 - Precision@10 after p25: strict 0.82 -> 0.86, lenient 0.85 -> 0.89, end-to-end 0.86, parse 20/20.
   person 10-20 m 0.30 -> 0.80, person > 30 m 0.40 -> 0.70, truck < 8 m 0.40 -> 0.50, cars > 40 m rain 0.90 -> 0.80.
 - Remaining weak: truck < 8 m 0.50, >= 2 cyclists 0.50, bus/truck <= 15 m night 0.60, bus <= 10 m 0.70.
+- inspect 13 (truck < 8 m day): 3/5 wrong = occluded trucks (visibility 1, ~11-12 m) read ~7.5 m because points hit the object in front (reads SHORT, opposite of pedestrians). 2/5 = no truck label nearby (class mismatch: van/construction vehicle likely).
+- inspect 17 (>= 2 cyclists): 4/5 wrong = one labeled bicycle with 2-3 overlapping boxes (e.g. frame 16947: two boxes both 6.9 m, one label at 6.3 m), duplicates below the 0.7 NMS overlap. 1/5 = 4 detections, no bicycle labels.
+- Possible fixes (not done): stricter NMS for counts, box-size vs distance consistency check for occlusion, wider class mapping.
 
