@@ -132,5 +132,10 @@
 - SearchFilter (Pydantic, extra=forbid) + filter_to_sql (parameterized): 11 unit tests, 20 total passing.
 - Headline query on full data (person <= 10 m, night, conf >= 0.3): 10 frames, conf 0.79-0.87, nearest 5.5-9.4 m (mini had 3 results at conf 0.30-0.50).
 - Issue: top 10 spans only 6 scenes (consecutive frames of the same moment). Consider max_per_scene; decide with the precision eval.
+- API (FastAPI + psycopg pool): POST /search, GET /frame/{id}, GET /image/{id}.
+- Headline query via API: same 10 frames as direct SQL, db_ms 9.73 (single request). Slower than the 0.96 ms EXPLAIN because ranking by confidence + GROUP BY prevents the early stop that ORDER BY distance allowed.
+- Invalid class returns 422 with allowed values (will feed LLM retries).
+- Sanity check frame 39045: 379.5 px tall person at 6.3 m implies ~1.89 m height (fx 1266.4). Box and distance agree.
+- Bug: `uvicorn` resolved to a global Python 3.13 install; fixed with python -m uvicorn.
 
 
