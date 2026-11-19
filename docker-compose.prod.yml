@@ -1,0 +1,27 @@
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: av
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: avsearch
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  api:
+    build: .
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://av:${POSTGRES_PASSWORD}@db:5432/avsearch
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      IMAGE_SOURCE: s3
+      S3_BUCKET: av-log-search-frames-ajit
+      AWS_REGION: us-east-2
+    ports:
+      - "80:8000"
+    depends_on:
+      - db
+
+volumes:
+  pgdata:
