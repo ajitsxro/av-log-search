@@ -122,4 +122,12 @@
   By points: 1-2 1.78, 3-4 0.58, 5-9 0.56, 10+ 0.82.
 - Settings generalize. 30+ m slightly above the 1 m target.
 
+## Part 4
+- VACUUM ANALYZE before measuring (backfill had updated every detection row).
+- Query: person, distance < 10 m, conf >= 0.3, night, ORDER BY distance LIMIT 10 (warm, 3rd run).
+  Before: Parallel Seq Scan over ~299K rows + sort, 8.36 ms.
+  After (detections (class_name, distance_m)): Index Scan, no sort, ~419 index entries read, 0.96 ms. 8.7x faster.
+- Index cost: table 30 MB, class/distance index 8.6 MB, frame_id index 2.7 MB.
+- Remaining work: night check on 320 joined frames; not worth denormalizing at ~1 ms.
+
 

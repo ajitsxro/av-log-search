@@ -35,3 +35,7 @@ CREATE TABLE IF NOT EXISTS processed_frames (
 ALTER TABLE detections ADD COLUMN IF NOT EXISTS distance_m REAL;
 ALTER TABLE detections ADD COLUMN IF NOT EXISTS lidar_points INTEGER;
 ALTER TABLE frames ADD COLUMN IF NOT EXISTS shard_id INTEGER;
+
+CREATE INDEX IF NOT EXISTS detections_class_distance_idx ON detections (class_name, distance_m);
+CREATE INDEX IF NOT EXISTS detections_frame_id_idx ON detections (frame_id);
+
