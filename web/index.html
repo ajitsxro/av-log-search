@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<!--
+index.html
+
+Search page for av-log-search. Sends the query to GET /search/text, shows the
+parsed filter, timings and a grid of matching frames. Clicking a frame loads
+GET /frame/{id} and draws its detections on a canvas: boxes that match the
+current search in green with class, confidence and distance; other boxes
+thin and gray. All text from the API is inserted with textContent, never as
+HTML.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>av-log-search</title>
+<style>
+  body { font-family: -apple-system, system-ui, sans-serif; margin: 0; background: #111; color: #eee; }
+  header { padding: 16px 24px; border-bottom: 1px solid #333; }
+  h1 { font-size: 18px; margin: 0 0 12px; font-weight: 600; }
+  form { display: flex; gap: 8px; }
+  input { flex: 1; padding: 10px 12px; font-size: 15px; border-radius: 6px; border: 1px solid #444; background: #1c1c1c; color: #eee; }
+  button { padding: 10px 16px; font-size: 15px; border-radius: 6px; border: 0; background: #2f6fed; color: #fff; cursor: pointer; }
+  .examples { margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .examples button { background: #2a2a2a; color: #ccc; font-size: 13px; padding: 6px 10px; }
+  #status { padding: 12px 24px; font-size: 13px; color: #aaa; min-height: 18px; }
+  #results { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; padding: 0 24px 24px; }
+  .card { background: #1c1c1c; border-radius: 8px; overflow: hidden; cursor: pointer; border: 1px solid #2a2a2a; }
+  .card:hover { border-color: #2f6fed; }
+  .card img { width: 100%; display: block; }
+  .card .meta { padding: 8px 10px; font-size: 13px; color: #bbb; }
+  #detail { display: none; padding: 0 24px 24px; }
+  #detail canvas { width: 100%; max-width: 1200px; border-radius: 8px; }
+  #detail .meta { font-size: 13px; color: #bbb; margin: 8px 0; }
+  .back { background: #2a2a2a; }
+</style>
+</head>
+<body>
+<header>
+  <h1>av-log-search: natural-language search over 34,149 nuScenes camera frames</h1>
+  <form id="search-form">
+    <input id="query" placeholder="pedestrian within 10 meters at night" autocomplete="off">
+    <button type="submit">Search</button>
+  </form>
+  <div class="examples" id="examples"></div>
+</header>
+<div id="status"></div>
+<div id="results"></div>
+<div id="detail">
+  <button class="back" id="back">Back to results</button>
+  <div class="meta" id="detail-meta"></div>
+  <canvas id="canvas"></canvas>
+</div>
+<script>
+const EXAMPLES = [
+  "pedestrian within 10 meters at night",
+  "cyclists in the rain",
+  "at least 5 cars",
+  "a bus within 10 meters",
+  "a person between 10 and 20 meters away",
+];
+
+const form = document.getElementById("search-form");
+const queryInput = document.getElementById("query");
+const statusLine = document.getElementById("status");
+const resultsGrid = document.getElementById("results");
+const detail = document.getElementById("detail");
+const detailMeta = document.getElementById("detail-meta");
+const canvas = document.getElementById("canvas");
+
+let currentFilter = null;
+
+for (const example of EXAMPLES) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = example;
+  button.addEventListener("click", function () {
+    queryInput.value = example;
+    runSearch(example);
+  });
+  document.getElementById("examples").appendChild(button);
+}
+
+form.addEventListener("submit", function (event) {
+  event.preventDefault();
+  const query = queryInput.value.trim();
+  if (query.length > 0) {
+    runSearch(query);
+  }
+});
+
+document.getElementById("back").addEventListener("click", function () {
+  detail.style.display = "none";
+  resultsGrid.style.display = "grid";
+});
+
+async function runSearch(query) {
+  statusLine.textContent = "Searching...";
+  resultsGrid.innerHTML = "";
+  detail.style.display = "none";
+  resultsGrid.style.display = "grid";
+
+  const response = await fetch("/search/text?q=" + encodeURIComponent(query));
+  const body = await response.json();
+
+  if (!response.ok) {
+    statusLine.textContent = "Could not search: " + JSON.stringify(body.detail);
+    return;
+  }
+
+  currentFilter = body.filter;
+  statusLine.textContent =
+    describeFilter(body.filter) + " | " + body.results.length + " results | parsed by " +
+    body.parser + " in " + Math.round(body.parse_ms) + " ms | database " + Math.round(body.db_ms) + " ms";
+
+  for (const result of body.results) {
+    resultsGrid.appendChild(makeCard(result));
+  }
+}
+
+function describeFilter(filter) {
+  const parts = [filter.classes.join(" or ")];
+  if (filter.min_count > 1) {
+    parts.push("at least " + filter.min_count);
+  }
+  if (filter.min_distance_m !== null) {
+    parts.push(">= " + filter.min_distance_m + " m");
+  }
+  if (filter.max_distance_m !== null) {
+    parts.push("<= " + filter.max_distance_m + " m");
+  }
+  if (filter.time_of_day !== null) {
+    parts.push(filter.time_of_day);
+  }
+  if (filter.weather !== null) {
+    parts.push(filter.weather);
+  }
+  return "Filter: " + parts.join(", ");
+}
+
+function makeCard(result) {
+  const card = document.createElement("div");
+  card.className = "card";
+
+  const image = document.createElement("img");
+  image.src = result.image_url;
+  image.loading = "lazy";
+  image.alt = result.scene_name + " frame " + result.frame_id;
+
+  let text = result.scene_name + " · " + result.time_of_day + ", " + result.weather +
+             " · conf " + result.best_confidence.toFixed(2);
+  if (result.nearest_m !== null) {
+    text += " · nearest " + result.nearest_m + " m";
+  }
+  const meta = document.createElement("div");
+  meta.className = "meta";
+  meta.textContent = text;
+
+  card.appendChild(image);
+  card.appendChild(meta);
+  card.addEventListener("click", function () {
+    openFrame(result.frame_id);
+  });
+  return card;
+}
+
+async function openFrame(frameId) {
+  const response = await fetch("/frame/" + frameId);
+  const frame = await response.json();
+
+  const image = new Image();
+  image.src = frame.image_url;
+  await image.decode();
+
+  canvas.width = image.naturalWidth;
+  canvas.height = image.naturalHeight;
+  const context = canvas.getContext("2d");
+  context.drawImage(image, 0, 0);
+
+  let matching = 0;
+  for (const detection of frame.detections) {
+    const isMatch = matchesFilter(detection, currentFilter);
+    if (isMatch) {
+      matching += 1;
+    }
+    drawBox(context, detection, isMatch);
+  }
+
+  detailMeta.textContent =
+    frame.scene_name + " · frame " + frame.frame_id + " · " + frame.time_of_day + ", " + frame.weather +
+    " · " + matching + " of " + frame.detections.length + " detections match the search (green)";
+
+  resultsGrid.style.display = "none";
+  detail.style.display = "block";
+  window.scrollTo(0, 0);
+}
+
+function matchesFilter(detection, filter) {
+  if (filter === null) {
+    return false;
+  }
+  if (!filter.classes.includes(detection.class_name)) {
+    return false;
+  }
+  if (detection.confidence < filter.min_confidence) {
+    return false;
+  }
+
+  const hasDistanceRule = filter.min_distance_m !== null || filter.max_distance_m !== null;
+  if (hasDistanceRule && detection.distance_m === null) {
+    return false;
+  }
+  if (filter.max_distance_m !== null && detection.distance_m > filter.max_distance_m) {
+    return false;
+  }
+  if (filter.min_distance_m !== null && detection.distance_m < filter.min_distance_m) {
+    return false;
+  }
+  return true;
+}
+
+function drawBox(context, detection, isMatch) {
+  const width = detection.x2 - detection.x1;
+  const height = detection.y2 - detection.y1;
+
+  context.lineWidth = isMatch ? 4 : 2;
+  context.strokeStyle = isMatch ? "#00e676" : "rgba(255, 255, 255, 0.45)";
+  context.strokeRect(detection.x1, detection.y1, width, height);
+
+  if (!isMatch) {
+    return;
+  }
+
+  let label = detection.class_name + " " + detection.confidence.toFixed(2);
+  if (detection.distance_m !== null) {
+    label += " · " + detection.distance_m + " m";
+  }
+
+  context.font = "bold 18px system-ui, sans-serif";
+  const labelWidth = context.measureText(label).width + 10;
+  const labelY = Math.max(detection.y1 - 26, 0);
+  context.fillStyle = "#00e676";
+  context.fillRect(detection.x1, labelY, labelWidth, 24);
+  context.fillStyle = "#000";
+  context.fillText(label, detection.x1 + 5, labelY + 18);
+}
+</script>
+</body>
+</html>

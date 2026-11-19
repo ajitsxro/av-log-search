@@ -192,3 +192,7 @@ def get_image(frame_id: int):
         raise HTTPException(status_code=404, detail="frame not found")
 
     return FileResponse(os.path.join(DATAROOT, row[0]), media_type="image/jpeg")
+
+@app.get("/")
+def home():
+    return FileResponse("web/index.html")
