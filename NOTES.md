@@ -145,5 +145,17 @@
 - /search/text: with no API key in the server env, keyword fallback answered both queries correctly and reported the reason (parse 0.5 ms vs ~1 s for LLM). Unknown-object query returns 422.
 - First request paid ~720 ms to import the Anthropic SDK (one time).
 - Key now loaded from .env (gitignored) via python-dotenv.
-
+- Precision@10 (20 hand-written queries, labels as truth, surface distance):
+  search strict 0.82, lenient 0.85, end-to-end 0.82, parse accuracy 20/20.
+  Worst: person 10-20 m 0.30, person > 30 m 0.40, truck < 8 m day 0.40, >= 2 cyclists 0.50, bus/truck <= 15 m night 0.60, bus <= 10 m 0.70.
+  "bicycle at night" returned 1 frame. "pedestrians in rain at night": 10 results from 3 scenes.
+- Hypotheses (to verify): background points inflate distance on thin pedestrians + confidence ranking favors close people; truck/bus/car class confusion; duplicate boxes on one bicycle.
+- Percentile experiment, train split (700 scenes, 47,745 objects), median / p90 |error|:
+  overall p50 0.75/6.36, p35 0.59/4.56, p25 0.52/4.49, p15 0.47/5.06.
+  person p50 0.49/3.9 -> p25 0.40/0.8 (tail fixed). car 0.81/8.3 -> 0.55/6.2. bicycle 2.56/9.4 -> 0.84/3.2.
+  p15 lowers medians but grows the tail (ground/foreground points). Chose p25.
+- Remaining tails: car p90 6.2 m (likely occlusion or glass, unverified); 30+ m p90 13.4 m.
+- Val split (150 scenes, 10,157 objects), p50 -> p25: median |error| 0.62 -> 0.46 m, p90 4.52 -> 3.22 m, signed +0.54 -> +0.38.
+  person p90 4.0 -> 0.8 m. All classes and ranges improved. 30+ m p90 12.7 -> 10.9 m (still a tail).
+- PERCENTILE = 25 chosen on train, confirmed on val. Replaces the earlier 0.76 m (median, mini-tuned) as the reported number.
 

@@ -1,23 +1,27 @@
 """
 distance_validation.py
 
-measures how accurate the LiDAR distance estimates are, using nuScenes
-ground-truth 3D boxes.
+Measures LiDAR distance accuracy against nuScenes labels and compares
+estimate settings.
 
-for every frame:
-1. project each labeled 3D box into the front camera (devkit helpers) to get
-   its 2D box and its true distance: camera to box center, in meters.
-2. match each YOLO detection (conf >= 0.3) to the unmatched labeled box of
-   the same class with the highest IoU, if IoU >= 0.5. One-to-one.
-3. estimate the detection's distance from LiDAR (median range inside the box,
-   minimum 1 point) and compare it to the true distance.
+For every frame in the chosen official nuScenes split ("train" or "val"):
+1. Get labeled boxes in the front camera with their true distance
+   (nearest surface by default, or box center).
+2. Match each YOLO detection (conf >= 0.3) to the same-class labeled box
+   with the highest IoU (>= 0.5), one-to-one.
+3. Estimate each matched detection's distance at several percentiles of the
+   LiDAR ranges in the central KEEP_FRACTION of its box (at least 3 points),
+   and compare each estimate to the true distance.
 
-labels measure to the box center and LiDAR hits the nearest surface, so
-estimates should read short. Signed error (estimate minus truth) shows that.
+Tune on "train" (700 scenes), then report the chosen setting on "val"
+(150 scenes), so the reported error comes from scenes never used to choose it.
 
-writes every match to output/distance_validation.csv and prints median error
-by true distance and by number of LiDAR points in the box.
+Reports per percentile: median absolute error, 90th-percentile absolute
+error (the large misses that range queries pick up), and median signed
+error (bias), overall, by class and by true distance.
 
+Run from the repo root with:
+    python -m evaluation.distance_validation
 """
 
 import csv
@@ -27,6 +31,7 @@ import time
 import numpy as np
 import psycopg
 from nuscenes.nuscenes import NuScenes
+from nuscenes.utils.splits import create_splits_scenes
 
 from config import DATABASE_URL, DATAROOT, IMAGE_HEIGHT, IMAGE_WIDTH, NUSCENES_VERSION
 from evaluation.labels import labeled_boxes_in_image, match_detections
@@ -34,65 +39,54 @@ from geometry.distance import box_distance
 from geometry.nuscenes_lidar import lidar_points_in_camera
 from geometry.project import project_to_image
 
+SPLIT = "val"
+PERCENTILES = [50, 25]
 CONFIDENCE_THRESHOLD = 0.3
 KEEP_FRACTION = 0.75
 TRUTH = "surface"
 OUTPUT_PATH = "output/distance_validation.csv"
-
-HELD_OUT_ONLY = True
-
 DISTANCE_BUCKETS = [(0, 10), (10, 30), (30, 1000)]
-POINT_BUCKETS = [(1, 2), (3, 4), (5, 9), (10, 1000000)]
-
-CATEGORY_TO_CLASS = {
-    "vehicle.car": "car",
-    "vehicle.truck": "truck",
-    "vehicle.bus.rigid": "bus",
-    "vehicle.bus.bendy": "bus",
-    "vehicle.bicycle": "bicycle",
-    "vehicle.motorcycle": "motorcycle",
-    "human.pedestrian.adult": "person",
-    "human.pedestrian.child": "person",
-    "human.pedestrian.construction_worker": "person",
-    "human.pedestrian.police_officer": "person",
-}
-
-DISTANCE_BUCKETS = [(0, 10), (10, 30), (30, 1000)]
-POINT_BUCKETS = [(1, 2), (3, 4), (5, 9), (10, 1000000)]
+REPORT_CLASSES = ["person", "car", "truck", "bus", "bicycle", "motorcycle"]
 
 
-def median_or_none(values):
-    if len(values) == 0:
+def error_summary(errors):
+    if len(errors) == 0:
         return None
-    return float(np.median(values))
+
+    absolute_errors = []
+    for error in errors:
+        absolute_errors.append(abs(error))
+
+    return {
+        "n": len(errors),
+        "median_abs": float(np.median(absolute_errors)),
+        "p90_abs": float(np.percentile(absolute_errors, 90)),
+        "median_signed": float(np.median(errors)),
+    }
 
 
-def print_bucket_table(title, rows, key, buckets):
-    print(title)
-    print("  range        n    median |error|   median signed error")
-    for low, high in buckets:
-        absolute_errors = []
-        signed_errors = []
-        for row in rows:
-            if low <= row[key] < high + (1 if key == "num_points" else 0):
-                absolute_errors.append(abs(row["error"]))
-                signed_errors.append(row["error"])
+def errors_for(rows, percentile, class_name=None, distance_range=None):
+    errors = []
+    for row in rows:
+        if class_name is not None and row["class_name"] != class_name:
+            continue
+        if distance_range is not None:
+            low, high = distance_range
+            if not (low <= row["true_distance"] < high):
+                continue
+        errors.append(row[f"est_p{percentile}"] - row["true_distance"])
+    return errors
 
-        median_abs = median_or_none(absolute_errors)
-        median_signed = median_or_none(signed_errors)
-        abs_text = "-" if median_abs is None else f"{median_abs:.2f} m"
-        signed_text = "-" if median_signed is None else f"{median_signed:+.2f} m"
-        print(f"  {low}-{high:<9} {len(absolute_errors):4}    {abs_text:>10}        {signed_text:>10}")
-    print()
+
+def format_cell(summary):
+    if summary is None:
+        return "      -      "
+    return f"{summary['median_abs']:5.2f} / {summary['p90_abs']:4.1f}"
 
 
 def main():
     nusc = NuScenes(version=NUSCENES_VERSION, dataroot=DATAROOT, verbose=False)
-    tuning_scenes = set()
-    if HELD_OUT_ONLY:
-        mini = NuScenes(version="v1.0-mini", dataroot=DATAROOT, verbose=False)
-        for scene in mini.scene:
-            tuning_scenes.add(scene["name"])
+    split_scenes = set(create_splits_scenes()[SPLIT])
 
     with psycopg.connect(DATABASE_URL) as conn:
         frames = conn.execute(
@@ -111,15 +105,15 @@ def main():
             detections_by_frame[frame_id] = []
         detections_by_frame[frame_id].append(row[1:])
 
-    results = []
+    rows = []
+    frames_checked = 0
     total_detections = 0
     total_matched = 0
-    matched_with_no_points = 0
-
-    frames_checked = 0
+    unknown = 0
     start_time = time.perf_counter()
+
     for frame_id, sample_token, camera_token, scene_name in frames:
-        if HELD_OUT_ONLY and scene_name in tuning_scenes:
+        if scene_name not in split_scenes:
             continue
 
         frames_checked += 1
@@ -130,7 +124,6 @@ def main():
         total_detections += len(detections)
         if len(detections) == 0:
             continue
-            
 
         sample = nusc.get("sample", sample_token)
         lidar_token = sample["data"]["LIDAR_TOP"]
@@ -143,53 +136,76 @@ def main():
 
         for detection, label, overlap in matches:
             class_name, confidence, x1, y1, x2, y2 = detection
-            estimate, num_points = box_distance(u, v, ranges, x1, y1, x2, y2, min_points=1, keep_fraction=KEEP_FRACTION)
-            if estimate is None:
-                matched_with_no_points += 1
-                continue
 
             if TRUTH == "surface":
                 true_distance = label["surface_distance"]
             else:
                 true_distance = label["center_distance"]
 
-            results.append({
-                "frame_id": frame_id,
-                "class_name": class_name,
-                "confidence": round(confidence, 3),
-                "iou": round(overlap, 3),
-                "num_points": num_points,
-                "true_distance": round(true_distance, 2),
-                "estimate": round(estimate, 2),
-                "error": round(estimate - true_distance, 2),
-            })
+            row = {"frame_id": frame_id, "class_name": class_name, "true_distance": round(true_distance, 2)}
+            known = True
+            for percentile in PERCENTILES:
+                estimate, num_points = box_distance(
+                    u, v, ranges, x1, y1, x2, y2, keep_fraction=KEEP_FRACTION, percentile=percentile
+                )
+                if estimate is None:
+                    known = False
+                    break
+                row[f"est_p{percentile}"] = round(estimate, 2)
+            row["num_points"] = num_points
+
+            if known:
+                rows.append(row)
+            else:
+                unknown += 1
 
     os.makedirs("output", exist_ok=True)
     with open(OUTPUT_PATH, "w", newline="") as csv_file:
-        writer = csv.DictWriter(csv_file, fieldnames=list(results[0].keys()))
+        writer = csv.DictWriter(csv_file, fieldnames=list(rows[0].keys()))
         writer.writeheader()
-        for row in results:
+        for row in rows:
             writer.writerow(row)
 
-    all_abs = []
-    all_signed = []
-    for row in results:
-        all_abs.append(abs(row["error"]))
-        all_signed.append(row["error"])
-
-    print("keep fraction:", KEEP_FRACTION)
-    print("truth:", TRUTH)
-    print("held out only:", HELD_OUT_ONLY, "| frames checked:", frames_checked)
-    # “HELD_OUT_ONLY skips the 10 mini scenes used to choose KEEP_FRACTION and MIN_POINTS.”
-    print("detections (conf >= 0.3):", total_detections)
-    print("matched to a labeled box:", total_matched)
-    print("matched but 0 LiDAR points:", matched_with_no_points)
-    print("evaluated:", len(results))
-    print("overall median |error|:", round(median_or_none(all_abs), 2), "m")
-    print("overall median signed error:", round(median_or_none(all_signed), 2), "m")
     print()
-    print_bucket_table("by true distance (m)", results, "true_distance", DISTANCE_BUCKETS)
-    print_bucket_table("by LiDAR points in box", results, "num_points", POINT_BUCKETS)
+    print(f"split: {SPLIT} ({len(split_scenes)} scenes) | frames: {frames_checked} | truth: {TRUTH} | keep: {KEEP_FRACTION}")
+    print(f"detections (conf >= {CONFIDENCE_THRESHOLD}): {total_detections} | matched: {total_matched} | "
+          f"unknown (< 3 points): {unknown} | evaluated: {len(rows)}")
+
+    print()
+    print("percentile | median |err| | p90 |err| | median signed")
+    for percentile in PERCENTILES:
+        summary = error_summary(errors_for(rows, percentile))
+        print(f"   p{percentile:<7} | {summary['median_abs']:9.2f} m | {summary['p90_abs']:7.2f} m | {summary['median_signed']:+10.2f} m")
+
+    header = "".join(f"     p{percentile:<9}" for percentile in PERCENTILES)
+
+    print()
+    print("by class (median |err| / p90 |err|, meters)")
+    print(f"  class          n  {header}")
+    for class_name in REPORT_CLASSES:
+        cells = []
+        count = 0
+        for percentile in PERCENTILES:
+            summary = error_summary(errors_for(rows, percentile, class_name=class_name))
+            if summary is not None:
+                count = summary["n"]
+            cells.append(format_cell(summary))
+        print(f"  {class_name:10} {count:6}  " + "  ".join(cells))
+
+    print()
+    print("by true distance (median |err| / p90 |err|, meters)")
+    print(f"  range          n  {header}")
+    for low, high in DISTANCE_BUCKETS:
+        cells = []
+        count = 0
+        for percentile in PERCENTILES:
+            summary = error_summary(errors_for(rows, percentile, distance_range=(low, high)))
+            if summary is not None:
+                count = summary["n"]
+            cells.append(format_cell(summary))
+        print(f"  {low}-{high:<8} {count:6}  " + "  ".join(cells))
+
+    print()
     print("saved", OUTPUT_PATH)
 
 
