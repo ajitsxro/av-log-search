@@ -172,3 +172,6 @@
   DB slower in B than A (back-to-back vs spaced between LLM calls); cause unverified.
 - Ways to cut: cache parsed filters, keyword-first fast path, per-frame count table for count queries.
 
+## Part 5
+- AWS: new accounts are pinned to a home region by an AWS-managed SCP (us-east-2 here); CreateBucket in us-west-2 was explicitly denied. Bucket av-log-search-frames-ajit (private), 34,149 CAM_FRONT images uploaded with aws s3 sync.
+

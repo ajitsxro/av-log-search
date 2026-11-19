@@ -8,6 +8,9 @@ environment variable, so the same code runs locally and when deployed.
 import os
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://av:av@localhost:5432/avsearch")
+IMAGE_SOURCE = os.environ.get("IMAGE_SOURCE", "local")
+S3_BUCKET = os.environ.get("S3_BUCKET", "")
+AWS_REGION = os.environ.get("AWS_REGION", "us-east-2")
 DATAROOT = "data/nuscenes"
 NUSCENES_VERSION = "v1.0-trainval"
 CAMERA = "CAM_FRONT"

@@ -27,14 +27,24 @@ from dotenv import load_dotenv
 
 load_dotenv()
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from psycopg_pool import ConnectionPool
 from pydantic import BaseModel
 
 from api.filters import SearchFilter, filter_to_sql
-from config import DATABASE_URL, DATAROOT
+from config import AWS_REGION, DATABASE_URL, DATAROOT, IMAGE_SOURCE, S3_BUCKET
 
 pool = ConnectionPool(DATABASE_URL, min_size=1, max_size=5, open=False)
+PRESIGNED_URL_SECONDS = 3600
+s3_client = None
+
+def get_s3_client():
+    global s3_client
+    if s3_client is None:
+        import boto3
+        from botocore.config import Config
+        s3_client = boto3.client("s3", region_name=AWS_REGION, config=Config(signature_version="s3v4"))
+    return s3_client
 
 
 @asynccontextmanager
@@ -191,7 +201,17 @@ def get_image(frame_id: int):
     if row is None:
         raise HTTPException(status_code=404, detail="frame not found")
 
-    return FileResponse(os.path.join(DATAROOT, row[0]), media_type="image/jpeg")
+    image_path = row[0]
+
+    if IMAGE_SOURCE == "s3":
+        url = get_s3_client().generate_presigned_url(
+            "get_object",
+            Params={"Bucket": S3_BUCKET, "Key": image_path},
+            ExpiresIn=PRESIGNED_URL_SECONDS,
+        )
+        return RedirectResponse(url)
+
+    return FileResponse(os.path.join(DATAROOT, image_path), media_type="image/jpeg")
 
 @app.get("/")
 def home():
