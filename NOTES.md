@@ -175,3 +175,11 @@
 ## Part 5
 - AWS: new accounts are pinned to a home region by an AWS-managed SCP (us-east-2 here); CreateBucket in us-west-2 was explicitly denied. Bucket av-log-search-frames-ajit (private), 34,149 CAM_FRONT images uploaded with aws s3 sync.
 
+## Deployment
+- EC2 t3.small (Ubuntu 24.04, us-east-2), Docker Compose (docker-compose.prod.yml): Postgres (no public port) + API on port 80.
+- Database moved with pg_dump -Fc / pg_restore: 34,149 frames and 299,170 detections, matching local.
+- Images from private S3 via presigned URLs, signed by an EC2 instance role (s3:GetObject on the bucket only). No AWS keys on the server.
+- Secrets (.env, chmod 600) only on the server: Anthropic key, random Postgres password.
+- HTTP only (no domain/TLS). Instance stopped when not demoing; public IP changes on restart.
+
+
