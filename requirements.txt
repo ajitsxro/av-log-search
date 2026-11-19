@@ -1,3 +1,4 @@
+anthropic==2.10.0
 fastapi==0.165.0
 fastapi-cli==0.0.34
 fastapi-cloud-cli==0.28.0

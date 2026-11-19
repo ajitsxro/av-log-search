@@ -137,5 +137,10 @@
 - Invalid class returns 422 with allowed values (will feed LLM retries).
 - Sanity check frame 39045: 379.5 px tall person at 6.3 m implies ~1.89 m height (fx 1266.4). Box and distance agree.
 - Bug: `uvicorn` resolved to a global Python 3.13 install; fixed with python -m uvicorn.
+- LLM parser (claude-haiku-5-5, structured outputs, 3 retries, keyword fallback). 5 test queries, all parsed by LLM on attempt 1.
+  Latency: first call 2909 ms (connection setup), then 753-1460 ms. DB is ~10 ms, so LLM dominates text-search latency.
+- Failure: "a cyclist close to the car" added class car (meant the ego car). Fixed with a prompt rule.
+- Limitation: classes are OR'd with one shared min_count, so "4 cars and a bus" cannot be expressed exactly. LLM silently picks the closest filter.
+- Correct: 40 feet -> 12.192 m; vague "close to" left distance null instead of inventing one.
 
 
