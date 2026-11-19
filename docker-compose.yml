@@ -10,5 +10,18 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  api:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://av:av@db:5432/avsearch
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data/nuscenes/samples:/app/data/nuscenes/samples:ro
+    depends_on:
+      - db
+
 volumes:
   pgdata:
