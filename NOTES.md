@@ -142,5 +142,8 @@
 - Failure: "a cyclist close to the car" added class car (meant the ego car). Fixed with a prompt rule.
 - Limitation: classes are OR'd with one shared min_count, so "4 cars and a bus" cannot be expressed exactly. LLM silently picks the closest filter.
 - Correct: 40 feet -> 12.192 m; vague "close to" left distance null instead of inventing one.
+- /search/text: with no API key in the server env, keyword fallback answered both queries correctly and reported the reason (parse 0.5 ms vs ~1 s for LLM). Unknown-object query returns 422.
+- First request paid ~720 ms to import the Anthropic SDK (one time).
+- Key now loaded from .env (gitignored) via python-dotenv.
 
 

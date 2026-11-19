@@ -7,6 +7,7 @@ Endpoints:
     POST /search        body: SearchFilter JSON -> matching frames, best first
     GET  /frame/{id}    one frame and its detections (confidence >= 0.3 by default)
     GET  /image/{id}    the frame's JPEG
+    GET /search/text  ?q=<words> -> parsed filter + matching frames
 
 FastAPI validates every request against the Pydantic models, so a bad
 filter returns a 422 error with the reason and never reaches the database.
@@ -21,7 +22,10 @@ Then open http://127.0.0.1:8000/docs
 import os
 import time
 from contextlib import asynccontextmanager
+from api.parser import QueryParseError, parse_query
+from dotenv import load_dotenv
 
+load_dotenv()
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from psycopg_pool import ConnectionPool
@@ -78,9 +82,18 @@ class FrameDetail(BaseModel):
     image_url: str
     detections: list[Detection]
 
+class TextSearchResponse(BaseModel):
+    query: str
+    parser: str
+    attempts: int
+    fallback_reason: str | None
+    filter: SearchFilter
+    parse_ms: float
+    db_ms: float
+    results: list[SearchResult]
 
 @app.post("/search", response_model=SearchResponse)
-def search(search_filter: SearchFilter):
+def run_search(search_filter):
     sql, params = filter_to_sql(search_filter)
 
     start = time.perf_counter()
@@ -102,7 +115,35 @@ def search(search_filter: SearchFilter):
             image_url=f"/image/{frame_id}",
         ))
 
-    return SearchResponse(filter=search_filter, db_ms=round(db_ms, 2), results=results)
+    return results, round(db_ms, 2)
+
+
+@app.post("/search", response_model=SearchResponse)
+def search(search_filter: SearchFilter):
+    results, db_ms = run_search(search_filter)
+    return SearchResponse(filter=search_filter, db_ms=db_ms, results=results)
+
+@app.get("/search/text", response_model=TextSearchResponse)
+def search_text(q: str = Query(min_length=1, max_length=300)):
+    start = time.perf_counter()
+    try:
+        parsed = parse_query(q)
+    except QueryParseError as error:
+        raise HTTPException(status_code=422, detail=str(error))
+    parse_ms = (time.perf_counter() - start) * 1000
+
+    results, db_ms = run_search(parsed["filter"])
+
+    return TextSearchResponse(
+        query=q,
+        parser=parsed["parser"],
+        attempts=parsed["attempts"],
+        fallback_reason=parsed["fallback_reason"],
+        filter=parsed["filter"],
+        parse_ms=round(parse_ms, 2),
+        db_ms=db_ms,
+        results=results,
+    )
 
 
 @app.get("/frame/{frame_id}", response_model=FrameDetail)
