@@ -158,4 +158,8 @@
 - Val split (150 scenes, 10,157 objects), p50 -> p25: median |error| 0.62 -> 0.46 m, p90 4.52 -> 3.22 m, signed +0.54 -> +0.38.
   person p90 4.0 -> 0.8 m. All classes and ranges improved. 30+ m p90 12.7 -> 10.9 m (still a tail).
 - PERCENTILE = 25 chosen on train, confirmed on val. Replaces the earlier 0.76 m (median, mini-tuned) as the reported number.
+- Recomputed all distances with p25 (299,170 boxes, 87 s). Known = 135,897, unchanged as expected.
+- Precision@10 after p25: strict 0.82 -> 0.86, lenient 0.85 -> 0.89, end-to-end 0.86, parse 20/20.
+  person 10-20 m 0.30 -> 0.80, person > 30 m 0.40 -> 0.70, truck < 8 m 0.40 -> 0.50, cars > 40 m rain 0.90 -> 0.80.
+- Remaining weak: truck < 8 m 0.50, >= 2 cyclists 0.50, bus/truck <= 15 m night 0.60, bus <= 10 m 0.70.
 
