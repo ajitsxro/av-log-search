@@ -43,8 +43,6 @@ From real runs, logged in [NOTES.md](NOTES.md).
 | Index on (class, distance) | 8.36 ms to 0.96 ms |
 | Kill and resume | same totals as an uninterrupted run |
 
-GPU cost of the full run: TODO
-
 ## Run it locally
 
 Needs Python 3.12, Docker, a Modal account, an Anthropic API key, and nuScenes trainval (free account at nuscenes.org, non-commercial license).
