@@ -50,21 +50,6 @@ From real runs, logged in [NOTES.md](NOTES.md).
 
 GPU cost of the full run: TODO
 
-## What I learned
-
-1. The bottleneck was small files, not the GPU. Reading JPEGs from a cloud volume took 197 ms each while detection took 5 ms. Packing them into 512-image tar shards cut reads to 3.9 ms and took the run from 5 to 451 fps.
-2. The median hid failures. Distance error looked fine at the median, but "person 10 to 20 m" scored 0.30 because LiDAR points slipped past thin pedestrians and hit the background. Switching to the 25th percentile cut person p90 error from 4.0 m to 0.8 m and lifted that query to 0.80.
-3. A control run caught a wrong conclusion. A big loading speedup after adding CPUs was really the volume cache warming up.
-
-## Limitations
-
-1. COCO classes don't match nuScenes labels (vans, construction vehicles), so truck and bus queries score 0.50 to 0.70.
-2. Mostly hidden objects read too close, because LiDAR hits whatever is in front of them.
-3. Overlapping boxes on one bicycle can be counted twice.
-4. 55% of detections have no distance (fewer than 3 points), and p90 error past 30 m is 10.9 m.
-5. Night and rain are per-scene keyword tags, not per frame.
-6. I wrote the 20 eval queries myself.
-
 ## Run it locally
 
 Needs Python 3.12, Docker, a Modal account, an Anthropic API key, and nuScenes trainval (free account at nuscenes.org, non-commercial license).
