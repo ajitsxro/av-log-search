@@ -23,7 +23,7 @@ from geometry.nuscenes_lidar import lidar_points_in_camera
 from geometry.project import project_to_image
 from config import DATABASE_URL, DATAROOT, IMAGE_HEIGHT, IMAGE_WIDTH, NUSCENES_VERSION, SCHEMA_PATH
 
-SELECT_TODO_SQL = """
+SELECT_PENDING_SQL = """
     SELECT d.detection_id, d.frame_id, f.sample_token, f.camera_token, d.x1, d.y1, d.x2, d.y2
     FROM detections d
     JOIN frames f ON f.frame_id = d.frame_id
@@ -43,7 +43,7 @@ def main():
 
     with psycopg.connect(DATABASE_URL, autocommit=True) as conn:
         conn.execute(schema_sql)
-        rows = conn.execute(SELECT_TODO_SQL).fetchall()
+        rows = conn.execute(SELECT_PENDING_SQL).fetchall()
         print("detections to process:", len(rows))
 
         boxes_by_frame = {}
@@ -88,10 +88,6 @@ def main():
     print("distance unknown (< 3 points):", unknown)
     if frames_done > 0:
         print("time:", round(total_seconds), "s =", round(total_seconds / frames_done * 1000, 1), "ms/frame")
-
-    print("frames processed:", len(boxes_by_frame))
-    print("distance known:", known)
-    print("distance unknown (< 3 points):", unknown)
 
 
 if __name__ == "__main__":

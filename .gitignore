@@ -5,3 +5,6 @@ __pycache__/
 output/
 *.pt
 *.dump
+.pytest_cache/
+.vscode/
+.DS_Store

@@ -61,11 +61,15 @@ def labeled_boxes_in_image(nusc, camera_token):
         x2 = min(float(IMAGE_WIDTH), float(corners_2d[0, :].max()))
         y2 = min(float(IMAGE_HEIGHT), float(corners_2d[1, :].max()))
 
+        annotation = nusc.get("sample_annotation", box.token)
+        visibility = int(annotation["visibility_token"])
+
         labeled.append({
             "class_name": CATEGORY_TO_CLASS[box.name],
             "box": (x1, y1, x2, y2),
             "center_distance": float(np.linalg.norm(box.center)),
             "surface_distance": distance_to_nearest_surface(box),
+            "visibility": visibility,
         })
     return labeled
 

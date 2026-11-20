@@ -1,0 +1,22 @@
+[
+  {"query": "pedestrian within 10 meters at night", "expected": {"classes": ["person"], "max_distance_m": 10, "time_of_day": "night"}},
+  {"query": "a cyclist within 15 m", "expected": {"classes": ["bicycle"], "max_distance_m": 15}},
+  {"query": "cars closer than 5 meters", "expected": {"classes": ["car"], "max_distance_m": 5}},
+  {"query": "a bus at night", "expected": {"classes": ["bus"], "time_of_day": "night"}},
+  {"query": "trucks in the rain", "expected": {"classes": ["truck"], "weather": "rain"}},
+  {"query": "at least 5 cars", "expected": {"classes": ["car"], "min_count": 5}},
+  {"query": "a motorcycle within 20 m", "expected": {"classes": ["motorcycle"], "max_distance_m": 20}},
+  {"query": "pedestrians in the rain at night", "expected": {"classes": ["person"], "weather": "rain", "time_of_day": "night"}},
+  {"query": "a pedestrian farther than 30 m", "expected": {"classes": ["person"], "min_distance_m": 30}},
+  {"query": "at least 3 pedestrians within 15 m", "expected": {"classes": ["person"], "min_count": 3, "max_distance_m": 15}},
+  {"query": "a bicycle at night", "expected": {"classes": ["bicycle"], "time_of_day": "night"}},
+  {"query": "a bus within 10 meters", "expected": {"classes": ["bus"], "max_distance_m": 10}},
+  {"query": "a car within 10 m at night", "expected": {"classes": ["car"], "max_distance_m": 10, "time_of_day": "night"}},
+  {"query": "a truck closer than 8 m during the day", "expected": {"classes": ["truck"], "max_distance_m": 8, "time_of_day": "day"}},
+  {"query": "cars beyond 40 meters in the rain", "expected": {"classes": ["car"], "min_distance_m": 40, "weather": "rain"}},
+  {"query": "a person between 10 and 20 meters away", "expected": {"classes": ["person"], "min_distance_m": 10, "max_distance_m": 20}},
+  {"query": "scooters or motorbikes", "expected": {"classes": ["motorcycle"]}},
+  {"query": "at least 2 cyclists", "expected": {"classes": ["bicycle"], "min_count": 2}},
+  {"query": "a pedestrian within 5 m during the day", "expected": {"classes": ["person"], "max_distance_m": 5, "time_of_day": "day"}},
+  {"query": "buses or trucks within 15 m at night", "expected": {"classes": ["bus", "truck"], "max_distance_m": 15, "time_of_day": "night"}}
+]

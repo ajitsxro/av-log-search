@@ -32,7 +32,7 @@ from modal_setup import image, volume
 CONFIDENCE_THRESHOLD = 0.1
 BATCH_SIZE = 16
 
-SELECT_TODO_SQL = """
+SELECT_PENDING_SQL = """
     SELECT f.frame_id, f.shard_id
     FROM frames f
     WHERE f.shard_id IS NOT NULL
@@ -147,11 +147,11 @@ def main(max_shards: int = 0):
         if unsharded > 0:
             print("warning:", unsharded, "frames have no shard yet; run scripts.build_shards first")
 
-        todo = conn.execute(SELECT_TODO_SQL, (MODEL_NAME,)).fetchall()
-        print("frames left to process:", len(todo))
+        pending = conn.execute(SELECT_PENDING_SQL, (MODEL_NAME,)).fetchall()
+        print("frames left to process:", len(pending))
 
         frames_by_shard = {}
-        for frame_id, shard_id in todo:
+        for frame_id, shard_id in pending:
             if shard_id not in frames_by_shard:
                 frames_by_shard[shard_id] = []
             frames_by_shard[shard_id].append(frame_id)

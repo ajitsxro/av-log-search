@@ -22,7 +22,7 @@ OUTPUT_PATH = "output/lidar_on_image.png"
 
 
 def main():
-    nusc = NuScenes(version=VERSION, dataroot=DATAROOT, verbose=False)
+    nusc = NuScenes(version=NUSCENES_VERSION, dataroot=DATAROOT, verbose=False)
 
     scene = nusc.scene[0]
     sample = nusc.get("sample", scene["first_sample_token"])
