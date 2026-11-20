@@ -2,11 +2,6 @@
 
 Natural-language search over self-driving footage. Ask for "pedestrian within 10 m at night" and get the matching nuScenes front-camera frames, with the objects boxed and their distance from the car.
 
-![Search results](docs/search.png)
-![Frame view](docs/frame.png)
-
-Demo: TODO
-
 ## How it works
 
 1. Loads 34,149 front-camera keyframes from all 850 nuScenes trainval scenes into Postgres.
